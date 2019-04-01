@@ -6,12 +6,11 @@
 import pymysql
 from sqlalchemy import create_engine, MetaData, TEXT, Integer, Float, Table, Column, \
     ForeignKey, String, BIGINT, DATE, DATETIME, text, exc, select
-from sqlalchemy.exc import IntegrityError
-from constants import constants,tickers
+from conf import constants
 import datetime
-import pandas as pd
+from classes import OLHBasicClass, OLHEodClass
 
-def load_db_table(ticker, df, dbname, dbhost, dbuser, dbpassword, table,exchange):
+def load_db_table(ticker, df, dbname, dbhost, dbuser, dbpassword, table):
     '''
     load data frame into database.
     :param ticker:
@@ -33,34 +32,18 @@ def load_db_table(ticker, df, dbname, dbhost, dbuser, dbpassword, table,exchange
     engine = create_engine(conn_string)
     meta = MetaData(bind=engine)
     meta.create_all(engine)
-    print("loading Symbol %s Exchange %s, table %s" % (ticker, exchange,table))
+    print("loading Symbol %s - table %s" % (ticker, table))
     params = {'name':table
               , 'con' : engine
               , 'chunksize' : 1000
               , 'if_exists' : 'append'
               , 'index' : False
-               }
-
-
-    # start_index = 0
-    # end_index = chunk_size if chunk_size < len(df) else len(df)
-    #
-    # frame = df.where(pd.notnull(df), None)
-    # if_exists_param = 'append'
-    # try:
-    #
-    #     while start_index != end_index:
-    #         print ("        Writing rows %s through %s" % (start_index, end_index))
-    #         frame.iloc[start_index:end_index, :].to_sql(**params)
-    #         start_index = min(start_index + chunk_size, len(frame))
-    #         end_index = min(end_index + chunk_size, len(frame))
-    # except Exception as ex:
-    #     print (str(ex))
-    #     return False
+              }
     try:
         df.to_sql(**params)
     except Exception as ex:
         print (str(ex))
+        return False
     return True
 
 
@@ -98,6 +81,7 @@ def load_eod_db(ticker, df, dbname, dbhost, dbuser, dbpassword, table):
         df.to_sql(**params)
     except Exception as ex:
         print (str(ex))
+        return False
     return True
 
 def execute_simple_db_query(query, dbname, dbhost, dbuser, dbpassword):
@@ -223,4 +207,105 @@ def execute_delete_query(tablename, dbname, dbhost, dbuser, dbpassword,params):
         return constants.FAIL
     return constants.SUCCESS
 
+
+def get_prevnday_candles(dbname, dbhost, dbuser, dbpassword, ticker, p_date,numdays=1):
+    '''
+    :param timeframe:
+    :param date:
+    :return: object of BasicOLHClass
+    '''
+
+    eod_olh_list = []
+    raw_sql = "select * from hist_data where ticker ='{}' and TradeDate < '{}' order by TradeDate DESC LIMIT {}".format(
+        ticker, p_date,numdays
+    )
+
+    conn_string = "mysql+pymysql://{dbuser}:{dbpassword}@{dbhost}/{dbname}".format(
+        dbuser=dbuser
+        , dbpassword=dbpassword
+        , dbhost=dbhost
+        , dbname=dbname
+    )
+    engine = create_engine(conn_string)
+    metadata = MetaData(engine)
+    stmt = text(raw_sql)
+    #print (stmt)
+
+    with engine.connect() as conn:
+        resultset = conn.execute(stmt)
+        for row in resultset :
+            p_open = row['Open']
+            high = row['High']
+            low = row['Low']
+            ltp = row['Close']
+            volume = row['Volume']
+            vwap = row['VWAP']
+            eod_olh_cls = OLHEodClass.OLHEodClass(script=ticker, trade_time=p_date, p_open=p_open
+                                          , high=high, low=low, ltp=ltp, volume=volume, vwap=vwap,pclose=None)
+            eod_olh_list.append(eod_olh_cls)
+    return eod_olh_list
+
+
+
+def get_olh_class_list(dbname, dbhost, dbuser, dbpassword, timeframe, p_date,p_time):
+    '''
+
+    :param dbname:
+    :param dbhost:
+    :param dbuser:
+    :param dbpassword:
+    :param timeframe:
+    :param p_date:
+    :param p_time:
+    :return:object of BasicOLHClass
+    '''
+
+    table_name = constants.tables_time[timeframe]
+    conn_string = "mysql+pymysql://{dbuser}:{dbpassword}@{dbhost}/{dbname}".format(
+        dbuser=dbuser
+        , dbpassword=dbpassword
+        , dbhost=dbhost
+        , dbname=dbname
+    )
+    engine = create_engine(conn_string)
+    metadata = MetaData(engine)
+    table_obj = Table(table_name, metadata, autoload=True, autoload_with=engine)
+    trade_time = '{} {}'.format(p_date,p_time)
+    stmt = select([table_obj]).where(table_obj.c.TradeTime == trade_time)
+    basic_olh_class_list = []
+    with engine.connect() as conn:
+        resultset = conn.execute(stmt)
+        for row in resultset :
+            p_open=row['Open']
+            high = row['High']
+            low = row['Low']
+            ltp = row['Close']
+            volume = row['Volume']
+            if p_open == high or p_open == low :
+                ticker = row['ticker']
+                prev_day_candle_list = get_prevnday_candles(dbhost=dbhost
+                                                       , dbname=dbname
+                                                       , dbuser=dbuser
+                                                       , dbpassword=dbpassword
+                                                       , ticker=ticker
+                                                       , p_date = p_date
+                                                       ,numdays=1)
+                prev_day_close = prev_day_candle_list[0].ltp
+                #print(prev_day_close)
+                #print (row)
+                basic_olh_class = OLHBasicClass.OLHBasicClass(
+                    script=ticker
+                    , trade_time = trade_time
+                    , p_open = p_open
+                    , high = high
+                    , low = low
+                    , ltp = ltp
+                    , volume = volume
+                    , pclose=prev_day_close
+                )
+                basic_olh_class_list.append(basic_olh_class)
+            #print(row['TradeTime'],row['ticker'])
+    #print (len(basic_olh_class_list))
+    return basic_olh_class_list
+    #print ("TradeTime" + trade_time)
 
