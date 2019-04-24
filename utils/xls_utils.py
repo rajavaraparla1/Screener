@@ -8,6 +8,7 @@ from nsetools import Nse
 import numpy as np
 
 
+
 def write_advdec_to_excel(excel_name,sheet_name,rownum):
     # Get advances and declines per sector.
     start_col=0

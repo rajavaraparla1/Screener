@@ -17,6 +17,7 @@ from email.mime.multipart import MIMEMultipart
 from bs4 import BeautifulSoup
 
 
+
 import time
 from conf import constants, config
 from nsepy import get_history
@@ -427,25 +428,31 @@ def get_option_chain(symbol):
             print("no thead")
     #print (col_list)
     col_list_fnl = [e for e in col_list if e not in ('CALLS', 'PUTS', 'Chart', '\xc2\xa0', '\xa0')]
-    col_list_fnl[0] = "CE_OI"
-    col_list_fnl[1] = "CE_CHANGE_OI"
-    col_list_fnl[2] = "CE_VOLUME"
-    col_list_fnl[3] = "CE_IV"
-    col_list_fnl[4]="CE_LTP"
-    col_list_fnl[16] = "PE_LTP"
-    col_list_fnl[17] = "PE_IV"
-    col_list_fnl[18] = "PE_VOLUME"
+    if (len(col_list) > 0 ):
+        col_list_fnl[0] = "CE_OI"
+        col_list_fnl[1] = "CE_CHANGE_OI"
+        col_list_fnl[2] = "CE_VOLUME"
+        col_list_fnl[3] = "CE_IV"
+        col_list_fnl[4]="CE_LTP"
+        col_list_fnl[16] = "PE_LTP"
+        col_list_fnl[17] = "PE_IV"
+        col_list_fnl[18] = "PE_VOLUME"
 
-    col_list_fnl[19] = "PE_CHANGE_OI"
-    col_list_fnl[20] = "PE_OI"
+        col_list_fnl[19] = "PE_CHANGE_OI"
+        col_list_fnl[20] = "PE_OI"
+    
 
     #print(col_list_fnl)
-
+    req_row = 0
     table_cls_2 = soup.find(id="octable")
-    all_trs = table_cls_2.find_all('tr')
-    req_row = table_cls_2.find_all('tr')
+    if table_cls_2 != None :
+        all_trs = table_cls_2.find_all('tr')
+        req_row = table_cls_2.find_all('tr')
+        new_table = pd.DataFrame(index=range(0, len(req_row) - 3), columns=col_list_fnl)
+    else:
+        new_table = pd.DataFrame(index=range(0, 0), columns=col_list_fnl)
+        return new_table
 
-    new_table = pd.DataFrame(index=range(0, len(req_row) - 3), columns=col_list_fnl)
 
     row_marker = 0
 
@@ -471,4 +478,5 @@ def get_option_chain(symbol):
             new_table.ix[row_marker, [nu]] = tr
 
         row_marker += 1
+    
     return new_table

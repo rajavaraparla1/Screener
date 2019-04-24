@@ -25,11 +25,11 @@ nse = Nse()
 for symbol in symbols:
     for row in strike_prices:
         opt_hist_ce_data = get_history(symbol=symbol
-                                          ,start=date(2018,9,30)
-                                          ,end=date(2018,10,10)
+                                          ,start=date(2019,3,2)
+                                          ,end=date(2019,3,28)
                                           ,option_type="CE"
                                           ,strike_price=row
-                                             , expiry_date=date(2018,10,25))
+                                             , expiry_date=date(2019,3,28))
         print(opt_hist_ce_data)
     pass
 

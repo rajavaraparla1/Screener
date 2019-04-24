@@ -1,13 +1,13 @@
 
-from utils import  trade_utils
+from utils import trade_utils
 from nsetools import Nse
-from datetime import datetime,date,timedelta
+from datetime import datetime, date, timedelta
 from conf import constants
 import pandas as pd
 import nsepy
 import json
 from classes import OptionHistInfo
-#symbols = ['ACC','COALINDIA','DRREDDY','MARUTI']
+#symbols = ['ACC', 'COALINDIA', 'DRREDDY', 'MARUTI']
 symbols = constants.nifty50_list
 
 nse = Nse()
@@ -48,12 +48,13 @@ for symbol in symbols:
                                           ,end=END_DATE
                                           ,option_type="CE"
                                           ,strike_price=round(float(row['Strike_Price']))
-                                             , expiry_date=date(2018,10,25))
+                                          , expiry_date=date(2019,4,25))
+        if len(opt_hist_ce_data) == 0:
+            continue
         opt_hist_ce_data['TradeDate'] = opt_hist_ce_data.index
         opt_hist_ce_data = opt_hist_ce_data.rename(columns=constants.HIST_OPT_COLS)
         opt_hist_ce_data.drop(['PR_TO','OI','OI_CH','Last', 'SETTLE_PRICE', 'NUM_CONTRACTS', 'Turnover','Underlying'],axis=1,inplace=True)
         latest_ce_row = opt_hist_ce_data.iloc[-1]
-        #print (opt_hist_ce_data)
         latest_ce_high = int(latest_ce_row['High'])
         latest_ce_low = int(latest_ce_row['Low'])
         latest_ce_date = latest_ce_row['TradeDate']
@@ -119,7 +120,11 @@ for symbol in symbols:
                                           ,end=END_DATE
                                           ,option_type="PE"
                                           ,strike_price=round(float(row['Strike_Price']))
-                                             , expiry_date=date(2018,10,25))
+                                          , expiry_date=date(2019,4,25))
+                                             
+        if len(opt_hist_pe_data) == 0:
+            continue
+
         opt_hist_pe_data['TradeDate'] = opt_hist_pe_data.index
         opt_hist_pe_data = opt_hist_pe_data.rename(columns=constants.HIST_OPT_COLS)
         opt_hist_pe_data.drop(['PR_TO','OI','OI_CH','Last', 'SETTLE_PRICE', 'NUM_CONTRACTS', 'Turnover','Underlying'],axis=1,inplace=True)
